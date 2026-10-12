@@ -412,8 +412,8 @@ class ConfigParser(object):
             list_trivia = Regex(r'(?:(?:[\n\r]+|#[^\n\r]*|//[^\n\r]*|\\\n[\n\r]*)[ \t]*)+').suppress()
             list_comma = Suppress(',') + Optional(list_trivia)
             list_separator = list_comma | (list_trivia + Optional(list_comma))
-            list_expr << Suppress('[') - ListParser(
-                Optional(list_trivia) + list_entry - ZeroOrMore(list_separator - list_entry)) - Suppress(']')
+            list_expr <<= (Suppress('[') - ListParser(
+                Optional(list_trivia) + list_entry - ZeroOrMore(list_separator - list_entry)) - Suppress(']'))
 
             # special case when we have a value assignment where the string can potentially be the remainder of the line
             assign_expr << Group(
