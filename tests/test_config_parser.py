@@ -199,6 +199,86 @@ class TestConfigParser(object):
             config['b'] == ['a', 1, '10 weeks', '5 minutes']
         )
 
+    @pytest.mark.parametrize('prefix', ['', 'array = '])
+    @pytest.mark.parametrize('value', [
+        '[,]',
+        '[,,]',
+        '[,1]',
+        '[\n,1]',
+        '[# comment\n,1]',
+        '[1, 2, , 3, 4]',
+        '[1,,2]',
+        '[1,\t,2]',
+        '[1,\n,2]',
+        '[1,\r\n,2]',
+        '[1,# comment\n,2]',
+        '[1,\n// comment\n,2]',
+        '[1,,]',
+        '[1, ,]',
+        '[1,\n,]',
+        '[1,// comment\n,]',
+        '[,\\\n1]',
+        '[\\\n,1]',
+        '[1,\\\n,2]',
+        '[1,\\\n,]',
+        '["",,1]',
+        '[[], , {}]',
+        '[[1,,2]]',
+        '[{nested = [1,,2]}]',
+    ])
+    def test_reject_empty_list_entries(self, prefix, value):
+        with pytest.raises(ParseBaseException):
+            ConfigFactory.parse_string(prefix + value)
+
+    @pytest.mark.parametrize('prefix', ['', 'array = '])
+    @pytest.mark.parametrize('value, expected', [
+        ('[]', []),
+        ('[ \t\n\r\n]', []),
+        ('[\n  \t]', []),
+        ('[# comment\n// another comment\n]', []),
+        ('[1, 2,]', [1, 2]),
+        ('[1, 2, ]', [1, 2]),
+        ('[1, 2,\n    ]', [1, 2]),
+        ('[1\n2\n]', [1, 2]),
+        ('[1\r\n2\r\n]', [1, 2]),
+        ('[\n1\n\n,\n2\n,\n]', [1, 2]),
+        ('[1# comment\n2]', [1, 2]),
+        ('[1 // comment, comma\n2]', [1, 2]),
+        ('["a" // comment\r\n"b"]', ['a', 'b']),
+        ('[unquoted // comment\nanother]', ['unquoted', 'another']),
+        ('[[1] // comment\n[2]]', [[1], [2]]),
+        ('[{a=1} // comment\n{b=2}]', [{'a': 1}, {'b': 2}]),
+        ('[1, # comment\n2, // trailing comment\n]', [1, 2]),
+        ('[1\n# comment\n,\n// another comment\n2]', [1, 2]),
+        ('[",", "a,,b", "[1,,2]"]', [',', 'a,,b', '[1,,2]']),
+        ('["""a,\n,b""", 2]', ['a,\n,b', 2]),
+        ('[true, false, 0]', [True, False, 0]),
+        ('[\\\n]', []),
+        ('[1,\\\n]', [1]),
+        ('[1\n\\\n]', [1]),
+        ('[1# comment\n\\\n]', [1]),
+        ('[1, // comment\n\\\n]', [1]),
+        ('[\\\n1,\\\n2]', [1, 2]),
+        ('[1\\\n2]', ['12']),
+        ('[1,\\ \t\r\n\n]', [1, '\\']),
+        ('[1,\\\r]', [1, '\\\r']),
+        ('[\\\r\n]', ['\\\r']),
+        ('[\\\n\r\n]', []),
+        ('[\\#]', ['#']),
+        ('[\\\\]', ['\\']),
+        ('[1,\\,]', [1, '\\,']),
+        ('[1 # \\ [,]\r2 // \\ [,]\r]', [1, 2]),
+        ('[[1, 2,], [], {nested = [3\n4]}]', [[1, 2], [], {'nested': [3, 4]}]),
+        ('["a" "b", [1] [2], {a=1} {b=2}]', ['a b', [1, 2], {'a': 1, 'b': 2}]),
+    ])
+    def test_parse_valid_list_separators(self, prefix, value, expected):
+        config = ConfigFactory.parse_string(prefix + value)
+        assert (config['array'] if prefix else config) == expected
+
+    def test_list_substitution_with_line_comment(self):
+        config = ConfigFactory.parse_string('value = [1]\narray = [${value} // comment, comma\r\n[2]]')
+        assert config['array'] == [[1], [2]]
+
     def test_parse_with_enclosing_square_bracket(self):
         config = ConfigFactory.parse_string("[1, 2, 3]")
         assert config == [1, 2, 3]

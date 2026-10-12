@@ -392,9 +392,10 @@ class ConfigParser(object):
             root_dict_expr = Forward()
             dict_expr = Forward()
             list_expr = Forward()
+            line_continuation = (Literal('\\') - eol).suppress()
+            value_token = include_expr | substitution_expr | dict_expr | list_expr | value_expr | line_continuation
             multi_value_expr = ZeroOrMore(
-                comment_eol | include_expr | substitution_expr | dict_expr | list_expr | value_expr | (Literal(
-                    '\\') - eol).suppress())
+                comment_eol | include_expr | substitution_expr | dict_expr | list_expr | value_expr | line_continuation)
             # for a dictionary : or = is optional
             # last zeroOrMore is because we can have t = {a:4} {b: 6} {c: 7} which is dictionary concatenation
             inside_dict_expr = ConfigTreeParser(ZeroOrMore(comment_eol | include_expr | assign_expr | eol_comma))
@@ -402,8 +403,17 @@ class ConfigParser(object):
                                                      root=True)
             dict_expr << Suppress('{') - inside_dict_expr - Suppress('}')
             root_dict_expr << Suppress('{') - inside_root_dict_expr - Suppress('}')
-            list_entry = ConcatenatedValueParser(multi_value_expr)
-            list_expr << Suppress('[') - ListParser(list_entry - ZeroOrMore(eol_comma - list_entry)) - Suppress(']')
+            # Require a value between commas, while allowing newlines and comments around a single comma.
+            list_end = re.compile(r'[ \t]*\]')
+            list_entry = ConcatenatedValueParser(
+                ZeroOrMore(value_token, stop_on=Regex(r'#|//')).add_condition(
+                    lambda instring, loc, tokens: bool(tokens) or list_end.match(instring, loc)))
+            # Only backslash-LF is tokenless; other escapes belong to unquoted strings.
+            list_trivia = Regex(r'(?:(?:[\n\r]+|#[^\n\r]*|//[^\n\r]*|\\\n[\n\r]*)[ \t]*)+').suppress()
+            list_comma = Suppress(',') + Optional(list_trivia)
+            list_separator = list_comma | (list_trivia + Optional(list_comma))
+            list_expr << Suppress('[') - ListParser(
+                Optional(list_trivia) + list_entry - ZeroOrMore(list_separator - list_entry)) - Suppress(']')
 
             # special case when we have a value assignment where the string can potentially be the remainder of the line
             assign_expr << Group(
