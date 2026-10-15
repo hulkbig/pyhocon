@@ -646,7 +646,14 @@ class ConfigParser(object):
                         # if the substitution is optional
                         if not is_optional_resolved and s.optional:
                             resolved_value = None
-                        unresolved, new_subs, _ = cls._do_substitute(s, resolved_value, is_optional_resolved)
+                        unresolved, new_subs, result = cls._do_substitute(s, resolved_value, is_optional_resolved)
+                        if not is_optional_resolved and s.optional and s.parent.transform() is None:
+                            fallback = result.transform() if isinstance(result, ConfigValues) else result
+                            if fallback is not None and not isinstance(fallback, ConfigValues):
+                                # Preserve recoverable defaults for later direct overrides.
+                                for candidate in cache_values:
+                                    if candidate.parent.overridden_value is s.parent:
+                                        candidate.parent.overridden_value = result
                         if s in substitutions:
                             substitutions.remove(s)
                         # Detected substitutions may already be listed to process
