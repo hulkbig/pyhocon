@@ -34,9 +34,9 @@ class HOCONConverter(object):
                 for key, item in config.items():
                     new_key = key.strip('"')  # for dotted keys enclosed with "" to not be interpreted as nested key
                     new_value = cls.to_json(item, compact, indent, level + 1)
-                    bet_lines.append('{indent}"{key}": {value}'.format(
+                    bet_lines.append('{indent}{key}: {value}'.format(
                         indent=''.rjust((level + 1) * indent, ' '),
-                        key=new_key,
+                        key=json.dumps(new_key, ensure_ascii=False),
                         value=new_value)
                     )
                 lines += ',\n'.join(bet_lines)
