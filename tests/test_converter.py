@@ -149,10 +149,10 @@ class TestConverterToYamlKeys(object):
         expected = dict((key, 'value-' + str(index)) for index, key in enumerate(keys))
         actual = yaml.safe_load(HOCONConverter.to_yaml(self.config_with_literal_keys(expected)))
         assert actual == expected
-        assert all(type(key) is str for key in actual)
+        assert all(isinstance(key, str) for key in actual)
         assert len(actual) == len(expected)
         # Explicit string scalars also avoid YAML 1.2 resolver differences.
-        for node, value in yaml.compose(HOCONConverter.to_yaml(self.config_with_literal_keys(expected))).value:
+        for node, _ in yaml.compose(HOCONConverter.to_yaml(self.config_with_literal_keys(expected))).value:
             assert node.style == '"'
             assert node.tag == 'tag:yaml.org,2002:str'
 
@@ -167,7 +167,7 @@ class TestConverterToYamlKeys(object):
         expected = dict((key, 'value-' + str(index)) for index, key in enumerate(keys))
         actual = yaml.safe_load(HOCONConverter.to_yaml(self.config_with_literal_keys(expected)))
         assert actual == expected
-        assert all(type(key) is str for key in actual)
+        assert all(isinstance(key, str) for key in actual)
 
     def test_ordinary_key_output_is_unchanged(self):
         config = ConfigTree([('alpha', 'first'), ('server_name', 'second'),
